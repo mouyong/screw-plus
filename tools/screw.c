@@ -11,6 +11,7 @@
 #include "../aes.c"
 #include "../aes_crypt.c"
 #include "../md5.h"
+#include "../php_screw_plus_key.h"
 
 void errMsg(char *str,char *str2) {
   printf("\033[40;31m%s%s\033[0m\n",str,str2);
@@ -113,7 +114,7 @@ void screw_decrypt(char *file) {
     exit(0);
   }
   memset(key, 0, sizeof(key));
-  memcpy(key, md5(CAKEY), 32);
+  memcpy(key, GETKEY(), 32);
   memcpy(enTag, key, 16);
   memset(lenBuf, 0, 16);
   fstat(fileno(fp), &stat_buf);
@@ -160,7 +161,7 @@ void screw_encrypt(char *file) {
     int i;
     memset(lenBuf, 0, 16);
     memset(key, 0, sizeof(key));
-    memcpy(key, md5(CAKEY), 32);
+    memcpy(key, GETKEY(), 32);
     memcpy(enTag, key, 16);
 
     fp = fopen(file, "rb");

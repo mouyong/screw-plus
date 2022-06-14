@@ -20,6 +20,7 @@
 #include "md5.h"
 #include "aes.c"
 #include "aes_crypt.c"
+#include "php_screw_plus_key.h"
 
 PHP_MINIT_FUNCTION(php_screw_plus);
 PHP_MSHUTDOWN_FUNCTION(php_screw_plus);
@@ -35,7 +36,7 @@ FILE *pm9screw_ext_fopen(FILE *fp)
   uint8_t enTag[16];
   uint8_t key[64];
   memset(key, 0, sizeof(key));
-  memcpy(key, md5(CAKEY), 32);
+  memcpy(key, GETKEY(), 32);
   memcpy(enTag, key, 16);
   memset(lenBuf, 0, 16);
   fstat(fileno(fp), &stat_buf);
@@ -135,7 +136,7 @@ PHP_MINFO_FUNCTION(php_screw_plus)
 {
   php_info_print_table_start();
   php_info_print_table_header(2, "php_screw_plus support", "enabled");
-  php_info_print_table_header(2, "php_screw_plus version", "0.11");
+  php_info_print_table_header(2, "php_screw_plus version", "0.12");
   php_info_print_table_end();
 }
 
