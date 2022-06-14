@@ -27,46 +27,53 @@ PHP_MINFO_FUNCTION(php_screw_plus);
 
 FILE *pm9screw_ext_fopen(FILE *fp)
 {
-  struct  stat  stat_buf;
-  char  *datap, *newdatap;
-  char lenBuf[16];
-  int datalen, newdatalen=0;
-  int i;
-  uint8_t enTag[16];
-  uint8_t key[64];
+  struct stat       stat_buf;
+  char              *dataptr;
+  char              lenBuf[16];
+  int               i, datalen;
+  uint8_t           enTag[16];
+  uint8_t           key[64];
+
   memset(key, 0, sizeof(key));
   memcpy(key, md5(CAKEY), 32);
   memcpy(enTag, key, 16);
   memset(lenBuf, 0, 16);
+
   fstat(fileno(fp), &stat_buf);
   datalen = stat_buf.st_size;
-  datap = (char*)malloc(maxBytes);
-  memset(datap, 0, sizeof(datap));
-  fread(datap, datalen, 1, fp);
+
+  dataptr = calloc(maxBytes, sizeof(char));
+
+  fread(dataptr, datalen, 1, fp);
   fclose(fp);
-  if(memcmp(datap, enTag, 16) == 0) {
+
+  if(memcmp(dataptr, enTag, 16) == 0) {
     for(i=16; i<datalen; i++) {
       if(i<32)
-        lenBuf[i-16] = datap[i];
+        lenBuf[i-16] = dataptr[i];
       else
-        datap[i-32] = datap[i];
+        dataptr[i-32] = dataptr[i];
     }
-    screw_aes(0,datap,datalen,key,&datalen);
+
+    screw_aes(0, dataptr, datalen, key, &datalen);
+
     datalen = atoi(lenBuf);
-  }else if(STRICT_MODE){
+  } else if(STRICT_MODE) {
     datalen = 0;
   }
+
   fp = tmpfile();
 
   if (datalen > 0) {
-    fwrite(datap, datalen, 1, fp);
+    fwrite(dataptr, datalen, 1, fp);
   } else {
     fwrite(STRICT_MODE_ERROR_MESSAGE, strlen(STRICT_MODE_ERROR_MESSAGE), 1, fp);
   }
 
-  free(datap);
+  free(dataptr);
 
   rewind(fp);
+
   return fp;
 }
 
