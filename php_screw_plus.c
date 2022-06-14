@@ -42,9 +42,9 @@ FILE *pm9screw_ext_fopen(FILE *fp)
   fstat(fileno(fp), &stat_buf);
   datalen = stat_buf.st_size;
 
-  dataptr = calloc(maxBytes, sizeof(char));
+  dataptr = calloc(datalen, sizeof(char));
 
-  fread(dataptr, datalen, 1, fp);
+  size_t read_size = fread(dataptr, datalen, 1, fp);
   fclose(fp);
 
   if(memcmp(dataptr, enTag, 16) == 0) {
@@ -83,17 +83,18 @@ ZEND_API zend_op_array *pm9screw_compile_file(zend_file_handle *file_handle, int
 {
   FILE  *fp;
   char  fname[32];
-  
+
   if (!file_handle || !file_handle->filename || strstr(file_handle->filename, ".phar") || strstr(file_handle->filename, "phar://")) {
     return org_compile_file(file_handle, type);
   }
-  
+
   memset(fname, 0, sizeof fname);
   if (zend_is_executing(TSRMLS_C)) {
     if (get_active_function_name(TSRMLS_C)) {
       strncpy(fname, get_active_function_name(TSRMLS_C), sizeof fname - 2);
     }
   }
+
   if (fname[0]) {
     if ( strcasecmp(fname, "show_source") == 0
       || strcasecmp(fname, "highlight_file") == 0) {
