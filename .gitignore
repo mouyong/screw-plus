@@ -5,5 +5,7 @@ tools/screw
 tools/screw.exe
 config*
 !config.m4
-!config.win*
+!config.win32
 run-tests.php
+Makefile*
+libtool
