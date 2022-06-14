@@ -1,0 +1,9 @@
+autom4te.cache/
+build/
+tools/test/
+tools/screw
+tools/screw.exe
+config*
+!config.m4
+!config.win*
+run-tests.php
