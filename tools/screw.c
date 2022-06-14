@@ -29,19 +29,19 @@ void file_encrypt(char *file);
 void file_decrypt(char *file);
 
 void errMsg(char *format, char *str) {
-  char msg[100];
+    char msg[1000];
 
-  sprintf(msg, format, str);
+    sprintf(msg, format, str);
 
-  printf("\033[40;31m%s\033[0m\n", msg);
+    printf("\033[40;31m%s\033[0m\n", msg);
 }
 
 void alertMsg(char *format, char *str) {
-  char msg[100];
+    char msg[1000];
 
-  sprintf(msg, format, str);
+    sprintf(msg, format, str);
 
-  printf("\033[1;32m%s\033[0m\n", msg);
+    printf("\033[1;32m%s\033[0m\n", msg);
 }
 
 void main(int argc, char**argv)
@@ -119,10 +119,8 @@ void scan_dir(char *path)
     struct dirent *dir = NULL;
     struct stat   stat_buf;
 
-    char          current_path[1000];
     int           i = 0;
     int           l = 0;
-
 
     printf("current %s\n", path);
     stat(path, &stat_buf);
@@ -139,42 +137,43 @@ void scan_dir(char *path)
 
     while (NULL != (dir = readdir(dirptr)))
     {
-        if(strncmp(dir->d_name,".", 1) == 0 || strncmp(dir->d_name,"..", 2) == 0) {
+        if(strncmp(dir->d_name, ".", 1) == 0 || strncmp(dir->d_name, "..", 2) == 0) {
             continue;
         }
 
-        strncpy(current_path, path, 1000 - 1);
-        current_path[1000-1] = '\0';
+        if(!is_php_file(path) && path[strlen(path)-1] != '/') {
+            strcat(path, "/");
+        }
 
-        if(current_path[strlen(current_path)-1] != '/')
-          strcat(current_path, "/");
+        l = strlen(path) + strlen(dir->d_name);
 
-        strcat(current_path, dir->d_name);
+        char curPath[l+1];
+        memset(curPath, 0, sizeof(curPath));
 
-        stat(current_path, &stat_buf);
+        strcat(curPath, path);
+        strcat(curPath, dir->d_name);
+
+        stat(curPath, &stat_buf);
 
         // if it is a folder
         if (is_dir(&stat_buf)) {
-            scan_dir(current_path);
-            continue;
-        }
-
-        if (is_file(&stat_buf) && is_php_file(dir->d_name)) {
-          screw_work(current_path);
+            scan_dir(curPath);
+        } else if (is_file(&stat_buf) && is_php_file(dir->d_name)) {
+            screw_work(curPath);
         }
     }
 }
 
 void screw_work(char *filepath)
 {
-  // encrypt
-  if(encode) {
-    file_encrypt(filepath);
-    return;
-  }
+    if(encode) {
+        // encrypt
+        file_encrypt(filepath);
+    } else {
+        // decrypt
+        file_decrypt(filepath);
+    }
 
-  // decrypt
-  file_decrypt(filepath);
 }
 
 void file_encrypt(char *filepath)
@@ -184,34 +183,28 @@ void file_encrypt(char *filepath)
     struct stat     stat_buf;
 
     char            *dataptr = NULL;
-    char            *lenBuf = NULL;
-
-    int             file_size;
+    char            lenBuf[16];
+    int             datalen;
 
     stat(filepath, &stat_buf);
-    file_size = stat_buf.st_size;
-    if (!is_file(&stat_buf)) {
-        errMsg("%s is not a file", filepath);
-        return;
-    }
+    datalen = stat_buf.st_size;
 
     // md5 key
     memset(key, 0, sizeof(key));
     memcpy(key, md5(CAKEY), 32);
     memcpy(enTag, key, 16);
+    memset(lenBuf, 0, 16);
+    sprintf(lenBuf, "%d", datalen);
     // set max content size
     dataptr = calloc(maxBytes, sizeof(char));
-    // file content size
-    lenBuf = calloc(16, sizeof(file_size));
-    sprintf(lenBuf, "%d", file_size);
 
     // read file
-    fp = fopen(filepath, "rb+");
+    fp = fopen(filepath, "rb");
     if (fp == NULL) {
         errMsg("File not found(%s)", filepath);
         return;
     }
-    fread(dataptr, file_size, 1, fp);
+    fread(dataptr, datalen, 1, fp);
     fclose(fp);
 
     // already encrypt?
@@ -221,13 +214,13 @@ void file_encrypt(char *filepath)
     }
 
     // file is empty
-    if(file_size < 1) {
+    if(datalen < 1) {
         errMsg("File is empty, will not be crypted %s", filepath);
         return;
     }
 
     // encrypt content
-    screw_aes(1, dataptr, file_size, key, &file_size);
+    screw_aes(1, dataptr, datalen, key, &datalen);
 
     // write ercrypt content to file
     fp = fopen(filepath, "wb");
@@ -238,9 +231,10 @@ void file_encrypt(char *filepath)
 
     fwrite(enTag, 16, 1, fp);
     fwrite(lenBuf, 16, 1, fp);
-    fwrite(dataptr, file_size, 1, fp);
-
+    fwrite(dataptr, datalen, 1, fp);
+    fclose(fp);
     free(dataptr);
+
     alertMsg("Success Crypting - %s", filepath);
 }
 
@@ -251,37 +245,28 @@ void file_decrypt(char *filepath)
     struct stat     stat_buf;
 
     char            *dataptr;
-    char            *lenBuf;
+    char            lenBuf[16];
 
-    int             file_size;
-    int             i;
+    int             i, datalen;
 
     stat(filepath, &stat_buf);
-    file_size = stat_buf.st_size;
-
-    if (!is_file(&stat_buf)) {
-        errMsg("%s is not a file", filepath);
-        return;
-    }
+    datalen = stat_buf.st_size;
 
     // md5 key
     memset(key, 0, sizeof(key));
     memcpy(key, md5(CAKEY), 32);
     memcpy(enTag, key, 16);
+    memset(lenBuf, 0, 16);
     // set max content size
     dataptr = calloc(maxBytes, sizeof(char));
-    // file content size
-    lenBuf = calloc(16, sizeof(file_size));
-    sprintf(lenBuf, "%d", file_size);
-
 
     // read crypted file content
-    fp = fopen(filepath, "rb+");
+    fp = fopen(filepath, "rb");
     if (fp == NULL) {
-      errMsg("File not found(%s)", filepath);
-      return;
+        errMsg("File not found(%s)", filepath);
+        return;
     }
-    fread(dataptr, file_size, 1, fp);
+    fread(dataptr, datalen, 1, fp);
     fclose(fp);
 
     // is not a valid crypted file
@@ -290,20 +275,22 @@ void file_decrypt(char *filepath)
         return;
     }
 
-    for(i = 16; i < file_size; i++) {
-      if(i<32)
-        lenBuf[i-16] = dataptr[i];
-      else
-        dataptr[i-32] = dataptr[i];
+    for(i = 16; i < datalen; i++) {
+        if(i < 32) {
+            lenBuf[i-16] = dataptr[i];
+        } else {
+            dataptr[i-32] = dataptr[i];
+        }
     }
 
-    screw_aes(0, dataptr, file_size, key, &file_size);
+    screw_aes(0, dataptr, datalen, key, &datalen);
 
-    file_size = atoi(lenBuf);
+    datalen = atoi(lenBuf);
 
     fp = fopen(filepath, "w+");
-    fwrite(dataptr, file_size, 1, fp);
+    fwrite(dataptr, datalen, 1, fp);
     fclose(fp);
+
     free(dataptr);
 
     alertMsg("Success Decrypting - %s", filepath);
