@@ -1,14 +1,14 @@
 #ifndef MD5_H
 #define MD5_H
- 
+
 typedef struct
 {
     unsigned int count[2];
     unsigned int state[4];
     unsigned char buffer[64];   
 }MD5_CTX;
- 
-                         
+
+
 #define F(x,y,z) ((x & y) | (~x & z))
 #define G(x,y,z) ((x & z) | (y & ~z))
 #define H(x,y,z) (x^y^z)
@@ -46,4 +46,5 @@ void MD5Encode(unsigned char *output,unsigned int *input,unsigned int len);
 void MD5Decode(unsigned int *output,unsigned char *input,unsigned int len);
 char* md5(char *str);
 #endif
+
 #include "md5.c"
